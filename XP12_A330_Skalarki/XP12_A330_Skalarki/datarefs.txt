@@ -1,0 +1,96 @@
+sim/cockpit2/autopilot/vnav_speed_window_open (int)
+0 => managed
+1 => selected
+
+laminar/A333/autopilot/hdg_window_open (double)
+1 => selected
+
+sim/cockpit2/autopilot/fms_vnav (int)
+1 => managed
+0 => selected
+
+laminar/A333/pull/baro/capt_std
+laminar/A333/push/baro/capt_std
+
+laminar/A333/pull/baro/fo_std
+laminar/A333/push/baro/fo_std
+
+sim/instruments/barometer_up
+sim/instruments/barometer_down
+
+sim/instruments/barometer_copilot_up
+sim/instruments/barometer_copilot_down
+
+laminar/A333/knob/baro/capt_hPa
+laminar/A333/knob/baro/capt_inHg
+
+
+sim/cockpit2/EFIS/map_range_copilot
+
+sim/cockpit2/EFIS/map_mode
+sim/cockpit2/EFIS/map_mode_copilot
+
+laminar/A333/autopilot/a_thr_toggle
+sim/autopilot/approach
+sim/autopilot/servos2_toggle
+sim/autopilot/servos2_on
+sim/autopilot/servos_on
+sim/autopilot/servos_toggle
+
+sim/autopilot/ap_disc_trim_interrupt priority left???
+sim/autopilot/attitude
+
+sim/autopilot/fdir_on
+sim/autopilot/fdir_toggle
+sim/autopilot/fdir2_toggle
+sim/autopilot/fdir2_on
+
+sim/autopilot/NAV (loc)
+sim/autopilot/back_course (loc)
+
+sim/autopilot/level_change
+
+all double (> 0)
+laminar/A333/annun/autopilot/a_thr_mode
+laminar/A333/annun/autopilot/alt_mode
+laminar/A333/annun/autopilot/ap1_mode
+laminar/A333/annun/autopilot/ap2_mode
+laminar/A333/annun/autopilot/appr_mode
+laminar/A333/annun/autopilot/loc_mode
+laminar/A333/annun/capt_flight_director_on
+laminar/A333/annun/fo_flight_director_on
+
+laminar/A333/data/flight_phase
+
+laminar/A333/annun/master_caution
+laminar/A333/annun/master_warning
+
+laminar/A333/annun/fo_ls_bars_on
+laminar/A333/annun/captain_ls_bars_on
+
+laminar/A333/buttons/capt_ils_bars_push
+laminar/A333/buttons/fo_ils_bars_push
+
+laminar/A333/knobs/capt_EFIS_knob_left
+laminar/A333/knobs/capt_EFIS_knob_right
+laminar/A333/knobs/fo_EFIS_knob_left
+laminar/A333/knobs/fo_EFIS_knob_right
+
+
+vertical speed
+
+sim/autopilot/alt_vs
+laminar/A333/autopilot/vertical_knob_pull
+laminar/A333/autopilot/vertical_knob_push
+sim/autopilot/vertical_speed (toggle to dash vs)
+sim/autopilot/vertical_speed_down
+sim/autopilot/vertical_speed_up
+
+sim/cockpit/autopilot/vertical_velocity
+laminar/A333/autopilot/knobs/vertical_pos
+
+laminar/A333/autopilot/vvi_fpa_window_open
+
+
+laminar/A333/autopilot/fpa_decrease
+laminar/A333/autopilot/fpa_increase
