@@ -33,6 +33,8 @@ const float IN_HG_TO_HPA = 33.863889532610884;
 
 bool DatarefsInitialized = false;
 
+SkalarkiComm* gSkalarkiComm = nullptr;
+
 XPLMCommandRef AirbusTakeoverPbCommand = NULL;	//  Our two custom commands
 XPLMCommandRef AutothrustOffCommand = NULL;
 
@@ -234,17 +236,19 @@ PLUGIN_API int XPluginStart(
     strcpy_s(outSig, 100, "Vrumugun.A330_Skalarki");
     strcpy_s(outDesc, 200, ".");
 
-    XPLMDebugString("Vrumugun.A330_Skalarki start...\n");
+    XPLMDebugString("A330_Skalarki: Start...\n");
 
     DatarefsInitialized = false;
 
-    InitCommunication(initBuf, intBufLen);
+    gSkalarkiComm = new SkalarkiComm();
 
-    PushMessage(sendbufBacklightOn, sendbufLenBacklightOn);
-    PushMessage(AltLvlChngOn, AltLvlChngOnLen);
-    PushMessage(HdgVsOn, HdgVsOnLen);
-    PushMessage(SpdOn, SpdOnLen);
-    PushMessage(LatOn, LatOnLen);
+    gSkalarkiComm->Init(initBuf, intBufLen, &ProcessPacket);
+
+    gSkalarkiComm->PushMessage(sendbufBacklightOn, sendbufLenBacklightOn);
+    gSkalarkiComm->PushMessage(AltLvlChngOn, AltLvlChngOnLen);
+    gSkalarkiComm->PushMessage(HdgVsOn, HdgVsOnLen);
+    gSkalarkiComm->PushMessage(SpdOn, SpdOnLen);
+    gSkalarkiComm->PushMessage(LatOn, LatOnLen);
     
     UpdateHdg(Hdg);
     UpdateAlt(Alt);
@@ -434,12 +438,12 @@ void InitDatarefs()
         if (i == 0)
         {
             SpdManaged = true;
-            PushMessage(SpdDotOn, SpdDotOnLen);
+            gSkalarkiComm->PushMessage(SpdDotOn, SpdDotOnLen);
         }
         else
         {
             SpdManaged = false;
-            PushMessage(SpdDotOff, SpdDotOffLen);
+            gSkalarkiComm->PushMessage(SpdDotOff, SpdDotOffLen);
         }
     }
 
@@ -664,7 +668,7 @@ float A330_SkalarkiUpdate(float elapsedMe, float elapsedSim, int counter, void* 
         if (AltManaged == false)
         {
             AltManaged = true;
-            PushMessage(AltDotOn, AltDotOnLen);
+            gSkalarkiComm->PushMessage(AltDotOn, AltDotOnLen);
         }
     }
     else
@@ -672,7 +676,7 @@ float A330_SkalarkiUpdate(float elapsedMe, float elapsedSim, int counter, void* 
         if (AltManaged == true)
         {
             AltManaged = false;
-            PushMessage(AltDotOff, AltDotOffLen);
+            gSkalarkiComm->PushMessage(AltDotOff, AltDotOffLen);
         }
     }
 
@@ -718,11 +722,11 @@ float A330_SkalarkiUpdate(float elapsedMe, float elapsedSim, int counter, void* 
         AthrState = AthrStateNew;
         if (AthrState == 1)
         {
-            PushMessage(AthrOn, AthrOnLen);
+            gSkalarkiComm->PushMessage(AthrOn, AthrOnLen);
         }
         else
         {
-            PushMessage(AthrOff, AthrOffLen);
+            gSkalarkiComm->PushMessage(AthrOff, AthrOffLen);
         }
     }
 
@@ -732,11 +736,11 @@ float A330_SkalarkiUpdate(float elapsedMe, float elapsedSim, int counter, void* 
         ApprState = ApprStateNew;
         if (ApprState == 1)
         {
-            PushMessage(ApprOn, ApprOnLen);
+            gSkalarkiComm->PushMessage(ApprOn, ApprOnLen);
         }
         else
         {
-            PushMessage(ApprOff, ApprOffLen);
+            gSkalarkiComm->PushMessage(ApprOff, ApprOffLen);
         }
     }
 
@@ -746,11 +750,11 @@ float A330_SkalarkiUpdate(float elapsedMe, float elapsedSim, int counter, void* 
         ApState1 = ApStateNew1;
         if (ApState1 == 1)
         {
-            PushMessage(Ap1On, Ap1OnLen);
+            gSkalarkiComm->PushMessage(Ap1On, Ap1OnLen);
         }
         else
         {
-            PushMessage(Ap1Off, Ap1OffLen);
+            gSkalarkiComm->PushMessage(Ap1Off, Ap1OffLen);
         }
     }
 
@@ -760,11 +764,11 @@ float A330_SkalarkiUpdate(float elapsedMe, float elapsedSim, int counter, void* 
         ApState2 = ApStateNew2;
         if (ApState2 == 1)
         {
-            PushMessage(Ap2On, Ap2OnLen);
+            gSkalarkiComm->PushMessage(Ap2On, Ap2OnLen);
         }
         else
         {
-            PushMessage(Ap2Off, Ap2OffLen);
+            gSkalarkiComm->PushMessage(Ap2Off, Ap2OffLen);
         }
     }
 
@@ -774,11 +778,11 @@ float A330_SkalarkiUpdate(float elapsedMe, float elapsedSim, int counter, void* 
 		MasterCautionState = MasterCautionStateNew;
 		if (MasterCautionState == 1)
 		{
-            PushMessage(MasterCautionOn, MasterCautionOnLen);
+            gSkalarkiComm->PushMessage(MasterCautionOn, MasterCautionOnLen);
 		}
 		else
 		{
-			PushMessage(MasterCautionOff, MasterCautionOffLen);
+            gSkalarkiComm->PushMessage(MasterCautionOff, MasterCautionOffLen);
 		}
 	}
     
@@ -788,11 +792,11 @@ float A330_SkalarkiUpdate(float elapsedMe, float elapsedSim, int counter, void* 
 		MasterWarningState = MasterWarningStateNew;
 		if (MasterWarningState == 1)
 		{
-            PushMessage(MasterWarningOn, MasterCautionOnLen);
+            gSkalarkiComm->PushMessage(MasterWarningOn, MasterCautionOnLen);
 		}
 		else
 		{
-			PushMessage(MasterWarningOff, MasterWarningOffLen);
+            gSkalarkiComm->PushMessage(MasterWarningOff, MasterWarningOffLen);
 		}
 	}
     
@@ -803,7 +807,7 @@ float A330_SkalarkiUpdate(float elapsedMe, float elapsedSim, int counter, void* 
         {
             HdgManaged = true;
             UpdateHdg(Hdg);
-            PushMessage(HdgDotOn, HdgDotOnLen);
+            gSkalarkiComm->PushMessage(HdgDotOn, HdgDotOnLen);
         }
     }
     else
@@ -812,7 +816,7 @@ float A330_SkalarkiUpdate(float elapsedMe, float elapsedSim, int counter, void* 
         {
             HdgManaged = false;
             UpdateHdg(Hdg);
-            PushMessage(HdgDotOff, HdgDotOffLen);
+            gSkalarkiComm->PushMessage(HdgDotOff, HdgDotOffLen);
         }
     }
 
@@ -823,7 +827,7 @@ float A330_SkalarkiUpdate(float elapsedMe, float elapsedSim, int counter, void* 
         {
             SpdManaged = true;
             UpdateSpd(Spd);
-            PushMessage(SpdDotOn, SpdDotOnLen);
+            gSkalarkiComm->PushMessage(SpdDotOn, SpdDotOnLen);
         }
     }
     else
@@ -834,7 +838,7 @@ float A330_SkalarkiUpdate(float elapsedMe, float elapsedSim, int counter, void* 
             SpdSet = XPLMGetDataf(gSpdDataref);
             Spd = SpdSet;
             UpdateSpd(Spd);
-            PushMessage(SpdDotOff, SpdDotOffLen);
+            gSkalarkiComm->PushMessage(SpdDotOff, SpdDotOffLen);
         }
     }
     
@@ -844,11 +848,11 @@ float A330_SkalarkiUpdate(float elapsedMe, float elapsedSim, int counter, void* 
         LsState = Ls;
         if (LsState == 1)
         {
-            PushMessage(LsCptOn, LsCptOnLen);
+            gSkalarkiComm->PushMessage(LsCptOn, LsCptOnLen);
         }
         else
         {
-            PushMessage(LsCptOff, LsCptOffLen);
+            gSkalarkiComm->PushMessage(LsCptOff, LsCptOffLen);
         }
     }
 
@@ -858,11 +862,11 @@ float A330_SkalarkiUpdate(float elapsedMe, float elapsedSim, int counter, void* 
         FdState = Fd;
         if (FdState == 1)
         {
-            PushMessage(FdCptOn, FdCptOnLen);
+            gSkalarkiComm->PushMessage(FdCptOn, FdCptOnLen);
         }
         else
         {
-            PushMessage(FdCptOff, FdCptOffLen);
+            gSkalarkiComm->PushMessage(FdCptOff, FdCptOffLen);
         }
     }
 
@@ -872,11 +876,11 @@ float A330_SkalarkiUpdate(float elapsedMe, float elapsedSim, int counter, void* 
         LocState = loc;
         if (LocState == 1)
         {
-            PushMessage(LocOn, LocOnLen);
+            gSkalarkiComm->PushMessage(LocOn, LocOnLen);
         }
         else
         {
-            PushMessage(LocOff, LocOffLen);
+            gSkalarkiComm->PushMessage(LocOff, LocOffLen);
         }
     }
 
@@ -975,12 +979,7 @@ float A330_SkalarkiUpdate(float elapsedMe, float elapsedSim, int counter, void* 
     if (BaroCptPushSet == true)
     {
         BaroCptPushSet = false;
-        XPLMDebugString("BaroCptPushSet\n");
-
-        char buffer[100];
-        sprintf_s(buffer, "Send: %d\n", packet_counter);
-        XPLMDebugString(buffer);
-
+        
         if (gBaroCptPush != NULL)
         {
             XPLMCommandOnce(gBaroCptPush);
@@ -990,12 +989,7 @@ float A330_SkalarkiUpdate(float elapsedMe, float elapsedSim, int counter, void* 
     if (BaroCptPullSet == true)
     {
         BaroCptPullSet = false;
-        XPLMDebugString("BaroCptPullSet\n");
-
-        char buffer[100];
-        sprintf_s(buffer, "Send: %d\n", packet_counter);
-        XPLMDebugString(buffer);
-
+        
         if (gBaroCptPull != NULL)
         {
             XPLMCommandOnce(gBaroCptPull);
@@ -1106,7 +1100,11 @@ PLUGIN_API void XPluginStop(void)
 
     DatarefsInitialized = false;
     
-    ShutdownCommunication();
+    if (gSkalarkiComm != nullptr)
+    {
+        gSkalarkiComm->Shutdown();
+        delete gSkalarkiComm;
+    }
 }
 
 PLUGIN_API void XPluginDisable(void)
@@ -1140,7 +1138,7 @@ int SetBaroCptStd()
     sendbufBaroLeft[sendBufBaroLen - 1 - 1] = 't';
     sendbufBaroLeft[sendBufBaroLen - 0 - 1] = 'd';
     
-    PushMessage(sendbufBaroLeft, sendBufBaroLen);
+    gSkalarkiComm->PushMessage(sendbufBaroLeft, sendBufBaroLen);
     
     return 0;
 }
@@ -1159,7 +1157,7 @@ int SetBaroFoStd()
     sendBufBaroRight[sendBufBaroLen - 1 - 1] = 't';
     sendBufBaroRight[sendBufBaroLen - 0 - 1] = 'd';
 
-    PushMessage(sendBufBaroRight, sendBufBaroLen);
+    gSkalarkiComm->PushMessage(sendBufBaroRight, sendBufBaroLen);
     
     return 0;
 }
@@ -1188,7 +1186,7 @@ int UpdateBaroCpt(float BaroNew)
         sendbufBaroLeft[sendBufBaroLen - 1 - 1] = alt_2 + '0';
         sendbufBaroLeft[sendBufBaroLen - 0 - 1] = alt_3 + '0';
         
-        PushMessage(sendbufBaroLeft, sendBufBaroLen);
+        gSkalarkiComm->PushMessage(sendbufBaroLeft, sendBufBaroLen);
     }
     else
     {
@@ -1211,7 +1209,7 @@ int UpdateBaroCpt(float BaroNew)
         sendbufBaroLeft[sendBufBaroLen - 1 - 1] = alt_2 + '0';
         sendbufBaroLeft[sendBufBaroLen - 0 - 1] = alt_3 + '0';
         
-        PushMessage(sendbufBaroLeft, sendBufBaroLen);
+        gSkalarkiComm->PushMessage(sendbufBaroLeft, sendBufBaroLen);
     }
     
     return 0;
@@ -1241,7 +1239,7 @@ int UpdateBaroFo(float BaroNew)
         sendBufBaroRight[sendBufBaroLen - 1 - 1] = alt_2 + '0';
         sendBufBaroRight[sendBufBaroLen - 0 - 1] = alt_3 + '0';
         
-        PushMessage(sendBufBaroRight, sendBufBaroLen);
+        gSkalarkiComm->PushMessage(sendBufBaroRight, sendBufBaroLen);
     }
     else
     {
@@ -1264,7 +1262,7 @@ int UpdateBaroFo(float BaroNew)
         sendBufBaroRight[sendBufBaroLen - 1 - 1] = alt_2 + '0';
         sendBufBaroRight[sendBufBaroLen - 0 - 1] = alt_3 + '0';
         
-        PushMessage(sendBufBaroRight, sendBufBaroLen);
+        gSkalarkiComm->PushMessage(sendBufBaroRight, sendBufBaroLen);
     }
     
     return 0;
@@ -1310,7 +1308,7 @@ int UpdateVs(int VsNew)
         sendbufVs[sendBufVsLen - 0 - 1] = '-';
     }
 
-    PushMessage(sendbufVs, sendBufVsLen);
+    gSkalarkiComm->PushMessage(sendbufVs, sendBufVsLen);
     
     return 0;
 }
@@ -1340,7 +1338,7 @@ int UpdateSpd(int SpdNew)
         sendbufSpd[sendBufSpdLen - 0 - 1] = '-';
     }
 
-    PushMessage(sendbufSpd, sendBufSpdLen);
+    gSkalarkiComm->PushMessage(sendbufSpd, sendBufSpdLen);
 
     return 0;
 }
@@ -1370,7 +1368,7 @@ int UpdateHdg(int HdgNew)
         sendbufHdg[sendBufHdgLen - 0 - 1] = '-';
     }
 
-    PushMessage(sendbufHdg, sendBufHdgLen);
+    gSkalarkiComm->PushMessage(sendbufHdg, sendBufHdgLen);
     
     return 0;
 }
@@ -1398,7 +1396,7 @@ int UpdateAlt(int AltNew)
     sendbufAlt[sendbufLenAlt - 1 - 1] = alt_3 + '0';
     sendbufAlt[sendbufLenAlt - 0 - 1] = alt_4 + '0';
 
-    PushMessage(sendbufAlt, sendbufLenAlt);
+    gSkalarkiComm->PushMessage(sendbufAlt, sendbufLenAlt);
 
     return 0;
 }
@@ -1847,7 +1845,6 @@ void ProcessPacket(char* recvbuf)
         {
             AltSet = 0.0;
         }
-        //UpdateAlt(ConnectSocket, Alt);
     }
     else if (foundHdgRight == true)
     {
@@ -1856,7 +1853,6 @@ void ProcessPacket(char* recvbuf)
         {
             HdgSet -= 360.0;
         }
-        //UpdateHdg(ConnectSocket, Hdg);
     }
     else if (foundHdgLeft == true)
     {
@@ -1865,7 +1861,6 @@ void ProcessPacket(char* recvbuf)
         {
             HdgSet += 360.0;
         }
-        //UpdateHdg(ConnectSocket, Hdg);
     }
     else if (foundSpdLeft == true)
     {
@@ -1874,7 +1869,6 @@ void ProcessPacket(char* recvbuf)
         {
             SpdSet = MIN_SPEED;
         }
-        //UpdateSpd(ConnectSocket, Spd);
     }
     else if (foundSpdRight == true)
     {
@@ -1883,7 +1877,6 @@ void ProcessPacket(char* recvbuf)
         {
             SpdSet = 999.0;
         }
-        //UpdateSpd(ConnectSocket, Spd);
     }
     else if (foundVsLeft == true)
     {
@@ -1894,14 +1887,3 @@ void ProcessPacket(char* recvbuf)
         VsRightSet = true;
     }
 }
-
-// Run program: Ctrl + F5 or Debug > Start Without Debugging menu
-// Debug program: F5 or Debug > Start Debugging menu
-
-// Tips for Getting Started: 
-//   1. Use the Solution Explorer window to add/manage files
-//   2. Use the Team Explorer window to connect to source control
-//   3. Use the Output window to see build output and other messages
-//   4. Use the Error List window to view errors
-//   5. Go to Project > Add New Item to create new code files, or Project > Add Existing Item to add existing code files to the project
-//   6. In the future, to open this project again, go to File > Open > Project and select the .sln file

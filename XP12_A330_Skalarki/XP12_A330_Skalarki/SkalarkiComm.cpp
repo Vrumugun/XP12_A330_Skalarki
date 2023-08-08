@@ -12,40 +12,27 @@
 
 #include "SkalarkiComm.h"
 
-#include <windows.h>
-#include <winsock2.h>
-#include <ws2tcpip.h>
-
-#include <string.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <math.h>
+using namespace std::chrono_literals;
 
 #define DEFAULT_BUFLEN 512
 #define DEFAULT_PORT "53000"
 #define SERVER_PORT (50001)
 
-static DWORD WINAPI ReceiveHandler(LPVOID lpParam);
-static DWORD WINAPI TransmitHandler(LPVOID lpParam);
-extern void ProcessPacket(char* recvbuf);
+SkalarkiComm::SkalarkiComm() : _semaphore(0)
+{
+    _socket = INVALID_SOCKET;
+    _processPacketFxn = nullptr;
+}
 
-static SOCKET ConnectSocket = INVALID_SOCKET;
+SkalarkiComm::~SkalarkiComm()
+{
+	if (_socket != INVALID_SOCKET)
+	{
+        Shutdown();
+	}
+}
 
-static char recvbuf[DEFAULT_BUFLEN];
-static int recvbuflen = DEFAULT_BUFLEN;
-
-static int MessageCount = 0;
-static int ReadIdx = 0;
-static int WriteIdx = 0;
-static int SkalarkiMessageLength[128];
-static char SkalarkiMessageBuffer[128][256];
-
-static HANDLE ghSemaphore;
-static HANDLE hMutex;
-static HANDLE  hThreadReceive;
-static HANDLE  hThreadTransmit;
-
-int InitCommunication(const char* first_buffer, int first_buffer_len)
+int SkalarkiComm::Init(const char* first_buffer, int first_buffer_len, T_ProcessPacketFxn process_packet_fxn)
 {
     WSADATA wsaData;
 
@@ -59,7 +46,9 @@ int InitCommunication(const char* first_buffer, int first_buffer_len)
     iResult = WSAStartup(MAKEWORD(2, 2), &wsaData);
     if (iResult != 0)
     {
-        printf("WSAStartup failed with error: %d\n", iResult);
+        char buffer[100];
+        sprintf_s(buffer, "A330_Skalarki: WSAStartup failed with error: %d\n", iResult);
+        XPLMDebugString(buffer);
         return 1;
     }
 
@@ -72,7 +61,9 @@ int InitCommunication(const char* first_buffer, int first_buffer_len)
     iResult = getaddrinfo("127.0.0.1", DEFAULT_PORT, &hints, &result);
     if (iResult != 0)
     {
-        printf("getaddrinfo failed with error: %d\n", iResult);
+        char buffer[100];
+        sprintf_s(buffer, "A330_Skalarki: getaddrinfo failed with error: %d\n", iResult);
+        XPLMDebugString(buffer);
         WSACleanup();
         return 1;
     }
@@ -80,220 +71,150 @@ int InitCommunication(const char* first_buffer, int first_buffer_len)
     ptr = result;
 
     // Create a SOCKET for connecting to server
-    ConnectSocket = socket(ptr->ai_family, ptr->ai_socktype,
+    _socket = socket(ptr->ai_family, ptr->ai_socktype,
         ptr->ai_protocol);
-    if (ConnectSocket == INVALID_SOCKET)
+    if (_socket == INVALID_SOCKET)
     {
-        printf("socket failed with error: %ld\n", WSAGetLastError());
+        char buffer[100];
+        sprintf_s(buffer, "A330_Skalarki: socket failed with error: %ld\n", WSAGetLastError());
+        XPLMDebugString(buffer);
         WSACleanup();
         return 1;
     }
 
     // Connect to server.
-    iResult = connect(ConnectSocket, ptr->ai_addr, (int)ptr->ai_addrlen);
+    iResult = connect(_socket, ptr->ai_addr, (int)ptr->ai_addrlen);
     if (iResult == SOCKET_ERROR)
     {
-        closesocket(ConnectSocket);
-        ConnectSocket = INVALID_SOCKET;
+        closesocket(_socket);
+        _socket = INVALID_SOCKET;
     }
 
-    if (ConnectSocket == INVALID_SOCKET)
+    if (_socket == INVALID_SOCKET)
     {
-        printf("Unable to connect to server!\n");
+        char buffer[100];
+        sprintf_s(buffer, "A330_Skalarki: Unable to connect to server!\n");
+        XPLMDebugString(buffer);
         WSACleanup();
         return 1;
     }
 
-    iResult = send(ConnectSocket, first_buffer, first_buffer_len, 0);
+    iResult = send(_socket, first_buffer, first_buffer_len, 0);
     if (iResult != SOCKET_ERROR)
     {
+
     }
 
-    Sleep(1000);
+    std::this_thread::sleep_for(1000ms);
 
-    ghSemaphore = CreateSemaphore(
-        NULL,           // default security attributes
-        0,  // initial count
-        1000,  // maximum count
-        NULL);          // unnamed semaphore
+    _processPacketFxn = process_packet_fxn;
 
-    if (ghSemaphore == NULL)
-    {
-        printf("CreateSemaphore error: %d\n", GetLastError());
-        return 1;
-    }
-
-    hMutex = CreateMutex(
-        NULL,              // default security attributes
-        FALSE,             // initially not owned
-        NULL);             // unnamed mutex
-
-    hThreadReceive = CreateThread(
-        NULL,                   // default security attributes
-        0,                      // use default stack size  
-        ReceiveHandler,       // thread function name
-        NULL,          // argument to thread function 
-        0,                      // use default creation flags 
-        NULL);   // returns the thread identifier 
-
-    hThreadTransmit = CreateThread(
-        NULL,                   // default security attributes
-        0,                      // use default stack size  
-        TransmitHandler,       // thread function name
-        NULL,          // argument to thread function 
-        0,                      // use default creation flags 
-        NULL);   // returns the thread identifier 
-
-    //PushMessage(initBuf, intBufLen);
+    _transmitThread = std::thread(&SkalarkiComm::TransmitThread, this);
+    _receiveThread = std::thread(&SkalarkiComm::ReceiveThread, this);
 
     return 0;
 }
 
-int ShutdownCommunication()
+int SkalarkiComm::Shutdown()
 {
-    CloseHandle(hThreadReceive);
-    CloseHandle(hThreadTransmit);
+    XPLMDebugString("A330_Skalarki: ShutdownCommunication...\n");
+
+    XPLMDebugString("A330_Skalarki: Stop threads\n");
+
+    _stopTransmit.store(true);
+    _stopReceive.store(true);
+
+    _semaphore.release();
+
+    XPLMDebugString("A330_Skalarki: Wait for threads\n");
+    _transmitThread.join();
+
+    XPLMDebugString("A330_Skalarki: Shutdown socket\n");
 
     // shutdown the connection since no more data will be sent
-    int iResult = shutdown(ConnectSocket, SD_BOTH);
+    int iResult = shutdown(_socket, SD_BOTH);
     if (iResult == SOCKET_ERROR)
     {
         printf("shutdown failed with error: %d\n", WSAGetLastError());
-        closesocket(ConnectSocket);
+        closesocket(_socket);
         WSACleanup();
         return 1;
     }
 
+    _receiveThread.join();
+
     // cleanup
-    closesocket(ConnectSocket);
+    closesocket(_socket);
     WSACleanup();
+
+    XPLMDebugString("A330_Skalarki: Finish shutdown\n");
 
     return 0;
 }
 
-void PushMessage(const char* msg, int len)
+void SkalarkiComm::PushMessage(const char* msg, int len)
 {
-    if (len > 256)
+    if (len > SKALARKI_MESSAGE_MAX_LENGTH)
     {
-        XPLMDebugString("Skalarki: Invalid length, > 256\n");
+        XPLMDebugString("A330_Skalarki: : Invalid length, > 256\n");
         return;
     }
 
     if (len == 0)
     {
-        XPLMDebugString("Skalarki: Invalid length, = 0\n");
+        XPLMDebugString("A330_Skalarki: : Invalid length, = 0\n");
         return;
     }
 
-    DWORD dwWaitResult = WaitForSingleObject(
-        hMutex,    // handle to mutex
-        INFINITE);  // no time-out interval
+    std::lock_guard<std::mutex> guard(_mutex);
 
-    if (MessageCount < 99)
-    {
-        for (int i = 0; i < len; i++)
-        {
-            SkalarkiMessageBuffer[WriteIdx][i] = msg[i];
-        }
+    _messageQueue.push(SkalarkiMessage(msg, len));
 
-        SkalarkiMessageLength[WriteIdx] = len;
-        WriteIdx++;
-        if (WriteIdx >= 100)
-        {
-            WriteIdx = 0;
-        }
-
-        //XPLMDebugString("Skalarki: Push message\n");
-        MessageCount++;
-
-        if (!ReleaseSemaphore(
-            ghSemaphore,  // handle to semaphore
-            1,            // increase count by one
-            NULL))       // not interested in previous count
-        {
-            printf("ReleaseSemaphore error: %d\n", GetLastError());
-        }
-    }
-
-    // Release ownership of the mutex object
-    if (!ReleaseMutex(hMutex))
-    {
-        // Handle error.
-    }
+    _semaphore.release();
 }
 
-//WSANOTINITIALISED
-static DWORD WINAPI TransmitHandler(LPVOID lpParam)
+void SkalarkiComm::TransmitThread()
 {
-    while (true)
+    while (_stopTransmit.load() == false)
     {
-        DWORD dwWaitResult = WaitForSingleObject(
-            ghSemaphore,   // handle to semaphore
-            INFINITE);           // zero-second time-out interval
+        _semaphore.acquire();
+        std::lock_guard<std::mutex> guard(_mutex);
 
-        dwWaitResult = WaitForSingleObject(
-            hMutex,    // handle to mutex
-            INFINITE);  // no time-out interval
-
-        if (MessageCount > 0)
+        if (_messageQueue.empty() == false)
         {
-            char* buf = &SkalarkiMessageBuffer[ReadIdx][0];
-            int len = SkalarkiMessageLength[ReadIdx];
+            SkalarkiMessage msg = _messageQueue.front();
+            _messageQueue.pop();
 
-            /*
-            char buffer[100];
-            sprintf_s(buffer, "Send: %X, %d\n", (UINT32)buf, len);
-            XPLMDebugString(buffer);
-            */
-
-            char sendBuff[256];
-            for (int i = 0; i < len; i++)
-            {
-                sendBuff[i] = SkalarkiMessageBuffer[ReadIdx][i];
-            }
-
-            int iResult = send(ConnectSocket, sendBuff, len, 0);
-            if (iResult != SOCKET_ERROR)
-            {
-                ReadIdx++;
-                if (ReadIdx >= 100)
-                {
-                    ReadIdx = 0;
-                }
-
-                MessageCount--;
-
-                //XPLMDebugString("Skalarki: Send socket ok\n");
-            }
-            else
+            int iResult = send(_socket, msg._msg, msg._len, 0);
+            if (iResult == SOCKET_ERROR)
             {
                 int lastError = WSAGetLastError();
                 char buffer[100];
-                sprintf_s(buffer, "Skalarki: Send socket failed (%d)\n", lastError);
+                sprintf_s(buffer, "A330_Skalarki: Send socket failed (%d)\n", lastError);
                 XPLMDebugString(buffer);
             }
         }
 
-        // Release ownership of the mutex object
-        if (!ReleaseMutex(hMutex))
-        {
-            // Handle error.
-        }
-
-        Sleep(10);
+        std::this_thread::sleep_for(10ms);
     }
 }
 
-static DWORD WINAPI ReceiveHandler(LPVOID lpParam)
+void SkalarkiComm::ReceiveThread()
 {
-    while (true)
+    while (_stopReceive.load() == false)
     {
-        int iResult = recv(ConnectSocket, recvbuf, recvbuflen, 0);
+        static char recvbuf[DEFAULT_BUFLEN];
+        static int recvbuflen = DEFAULT_BUFLEN;
+
+        int iResult = recv(_socket, recvbuf, recvbuflen, 0);
         if (iResult > 0)
         {
             //printf("Bytes received: %d\n", iResult);
 
-            ProcessPacket(recvbuf);
+            if (_processPacketFxn != nullptr)
+            {
+                (*_processPacketFxn)(recvbuf);
+            }
         }
     }
 }
