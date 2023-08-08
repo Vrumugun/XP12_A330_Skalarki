@@ -12,5 +12,5 @@ Connect Skalarki desktop line FCU to default A330 in XP12
     - CPT Baro = in Hg
     - CPT ND = LS
     - CPT ND Range = 40 nm
-    - ALt mod = 100
+    - ALt mode = 100
 - Start X-Plane and load aircraft
