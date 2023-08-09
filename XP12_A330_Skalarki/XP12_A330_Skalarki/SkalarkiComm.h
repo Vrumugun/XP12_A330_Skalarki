@@ -20,10 +20,16 @@ const int SKALARKI_MESSAGE_MAX_LENGTH = 256;
 class SkalarkiMessage
 {
 public:
+	SkalarkiMessage()
+	{
+		memset(_msg, 0, SKALARKI_MESSAGE_MAX_LENGTH);
+		_len = 0;
+	}
 	SkalarkiMessage(const char* msg, int len)
 	{
 		memcpy_s(_msg, SKALARKI_MESSAGE_MAX_LENGTH, msg, len);
-		_len = len;
+		//_msg[len] = '\0';
+		_len = len;// +1;
 	}
 	char _msg[SKALARKI_MESSAGE_MAX_LENGTH];
 	int _len;
@@ -42,7 +48,8 @@ public:
 	int Shutdown();
 
 	void PushMessage(const char* msg, int len);
-
+	SkalarkiMessage PopMessage();
+	
 protected:
 	void TransmitThread();
 	void ReceiveThread();
@@ -55,9 +62,16 @@ protected:
 	std::atomic_bool _stopReceive{ false };
 	std::atomic_bool _stopTransmit{ false };
 	
-	std::mutex _mutex;
-	std::counting_semaphore<1000> _semaphore;
+	std::mutex _mutexTx;
+	std::mutex _mutexRx;
+
+	std::counting_semaphore<1000> _semaphoreTx;
 
 	T_ProcessPacketFxn _processPacketFxn;
-	SkalarkiMessageQueue _messageQueue;
+
+	SkalarkiMessageQueue _messageQueueTx;
+	SkalarkiMessageQueue _messageQueueRx;
+
+	int _rxMessageCount;
+	int _txMessageCount;
 };

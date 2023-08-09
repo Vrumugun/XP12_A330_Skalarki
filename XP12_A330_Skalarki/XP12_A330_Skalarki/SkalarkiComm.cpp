@@ -18,7 +18,7 @@ using namespace std::chrono_literals;
 #define DEFAULT_PORT "53000"
 #define SERVER_PORT (50001)
 
-SkalarkiComm::SkalarkiComm() : _semaphore(0)
+SkalarkiComm::SkalarkiComm() : _semaphoreTx(0), _txMessageCount(0), _rxMessageCount(0)
 {
     _socket = INVALID_SOCKET;
     _processPacketFxn = nullptr;
@@ -124,7 +124,7 @@ int SkalarkiComm::Shutdown()
     _stopTransmit.store(true);
     _stopReceive.store(true);
 
-    _semaphore.release();
+    _semaphoreTx.release();
 
     XPLMDebugString("A330_Skalarki: Wait for threads\n");
     _transmitThread.join();
@@ -166,32 +166,37 @@ void SkalarkiComm::PushMessage(const char* msg, int len)
         return;
     }
 
-    std::lock_guard<std::mutex> guard(_mutex);
+    std::lock_guard<std::mutex> guard(_mutexTx);
 
-    _messageQueue.push(SkalarkiMessage(msg, len));
+    _messageQueueTx.push(SkalarkiMessage(msg, len));
 
-    _semaphore.release();
+    _semaphoreTx.release();
 }
 
 void SkalarkiComm::TransmitThread()
 {
     while (_stopTransmit.load() == false)
     {
-        _semaphore.acquire();
-        std::lock_guard<std::mutex> guard(_mutex);
-
-        if (_messageQueue.empty() == false)
+        _semaphoreTx.acquire();
+        
         {
-            SkalarkiMessage msg = _messageQueue.front();
-            _messageQueue.pop();
-
-            int iResult = send(_socket, msg._msg, msg._len, 0);
-            if (iResult == SOCKET_ERROR)
+            std::lock_guard<std::mutex> guard(_mutexTx);
+            
+            if (_messageQueueTx.empty() == false)
             {
-                int lastError = WSAGetLastError();
-                char buffer[100];
-                sprintf_s(buffer, "A330_Skalarki: Send socket failed (%d)\n", lastError);
-                XPLMDebugString(buffer);
+                SkalarkiMessage msg = _messageQueueTx.front();
+                _messageQueueTx.pop();
+
+                int iResult = send(_socket, msg._msg, msg._len, 0);
+                if (iResult == SOCKET_ERROR)
+                {
+                    int lastError = WSAGetLastError();
+                    char buffer[100];
+                    sprintf_s(buffer, "A330_Skalarki: Send socket failed (%d)\n", lastError);
+                    XPLMDebugString(buffer);
+                }
+
+                _txMessageCount++;
             }
         }
 
@@ -203,18 +208,31 @@ void SkalarkiComm::ReceiveThread()
 {
     while (_stopReceive.load() == false)
     {
-        static char recvbuf[DEFAULT_BUFLEN];
-        static int recvbuflen = DEFAULT_BUFLEN;
+        static char recvbuf[SKALARKI_MESSAGE_MAX_LENGTH];
+        static int recvbuflen = SKALARKI_MESSAGE_MAX_LENGTH;
 
         int iResult = recv(_socket, recvbuf, recvbuflen, 0);
         if (iResult > 0)
         {
-            //printf("Bytes received: %d\n", iResult);
-
-            if (_processPacketFxn != nullptr)
-            {
-                (*_processPacketFxn)(recvbuf);
-            }
+            std::lock_guard<std::mutex> guard(_mutexRx);
+            _messageQueueRx.push(SkalarkiMessage(recvbuf, iResult));
+            _rxMessageCount++;
         }
+    }
+}
+
+SkalarkiMessage SkalarkiComm::PopMessage()
+{
+	std::lock_guard<std::mutex> guard(_mutexRx);
+
+	if (_messageQueueRx.empty() == false)
+	{
+		SkalarkiMessage msg = _messageQueueRx.front();
+		_messageQueueRx.pop();
+		return msg;
+	}
+    else
+    {
+        return SkalarkiMessage();
     }
 }
