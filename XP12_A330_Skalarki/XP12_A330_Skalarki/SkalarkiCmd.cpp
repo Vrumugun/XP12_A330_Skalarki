@@ -68,10 +68,15 @@ XPLMDataRef gSpdManagedDataref = NULL;
 XPLMDataRef gVsManagedDataref = NULL;
 XPLMDataRef gAltManagedDataref = NULL;
 
-XPLMDataRef gNdModeDataref = NULL;
-XPLMDataRef gNdModeLeftDataref = NULL;
-XPLMDataRef gNdModeRightDataref = NULL;
-XPLMDataRef gNdRangeDataref = NULL;
+XPLMDataRef gNdModeCptDataref = NULL;
+XPLMCommandRef gNdModeCptLeftDataref = NULL;
+XPLMCommandRef gNdModeCptRightDataref = NULL;
+XPLMDataRef gNdRangeCptDataref = NULL;
+
+XPLMDataRef gNdModeFoDataref = NULL;
+XPLMCommandRef gNdModeFoLeftDataref = NULL;
+XPLMCommandRef gNdModeFoRightDataref = NULL;
+XPLMDataRef gNdRangeFoDataref = NULL;
 
 XPLMDataRef gBaroCptStd = NULL;
 XPLMDataRef gBaroCptMode = NULL;
@@ -110,8 +115,8 @@ float Spd = 250.0;
 float SpdSet = 250.0;
 float Alt = 0.0;
 float AltSet = 0.0;
-float Hdg = 0.0;
-float HdgSet = 0.0;
+float Hdg = 0;
+float HdgSet = 0;
 int Vs = 0;
 int VsSet = 0;
 
@@ -151,6 +156,11 @@ int NdRangeSet = 2; // 40 (default value of A330)
 int NdRange = 2; // 40 (default value of A330)
 int NdModeSet = 0; // LS (default value of A330)
 int NdMode = 0; // LS (default value of A330)
+
+int NdRangeFoSet = 2; // 40 (default value of A330)
+int NdRangeFo = 2; // 40 (default value of A330)
+int NdModeFoSet = 0; // LS (default value of A330)
+int NdModeFo = 0; // LS (default value of A330)
 
 int LsState = 0;
 int FdState = 0;
@@ -250,12 +260,25 @@ SkalarkiCmd::SkalarkiCmd()
     CommandMap.emplace(std::hash<std::string_view>{}(std::string_view(NdModeArc, sizeof(NdModeArc) - 1)), []() { NdModeSet = 3; });
     CommandMap.emplace(std::hash<std::string_view>{}(std::string_view(NdModePlan, sizeof(NdModePlan) - 1)), []() { NdModeSet = 4; });
 
-    CommandMap.emplace(std::hash<std::string_view>{}(std::string_view(NdRange10, sizeof(NdRange10) - 1)), []() { NdRangeSet = 0; });
-    CommandMap.emplace(std::hash<std::string_view>{}(std::string_view(NdRange20, sizeof(NdRange20) - 1)), []() { NdRangeSet = 1; });
-    CommandMap.emplace(std::hash<std::string_view>{}(std::string_view(NdRange40, sizeof(NdRange40) - 1)), []() { NdRangeSet = 2; });
-    CommandMap.emplace(std::hash<std::string_view>{}(std::string_view(NdRange80, sizeof(NdRange80) - 1)), []() { NdRangeSet = 3; });
-    CommandMap.emplace(std::hash<std::string_view>{}(std::string_view(NdRange160, sizeof(NdRange160) - 1)), []() { NdRangeSet = 4; });
-    CommandMap.emplace(std::hash<std::string_view>{}(std::string_view(NdRange320, sizeof(NdRange320) - 1)), []() { NdRangeSet = 5; });
+    CommandMap.emplace(std::hash<std::string_view>{}(std::string_view(NdRange10, sizeof(NdRange10) - 1)), []() { XPLMSetDatai(gNdRangeCptDataref, 0); });
+    CommandMap.emplace(std::hash<std::string_view>{}(std::string_view(NdRange20, sizeof(NdRange20) - 1)), []() { XPLMSetDatai(gNdRangeCptDataref, 1); });
+    CommandMap.emplace(std::hash<std::string_view>{}(std::string_view(NdRange40, sizeof(NdRange40) - 1)), []() { XPLMSetDatai(gNdRangeCptDataref, 2); });
+    CommandMap.emplace(std::hash<std::string_view>{}(std::string_view(NdRange80, sizeof(NdRange80) - 1)), []() { XPLMSetDatai(gNdRangeCptDataref, 3); });
+    CommandMap.emplace(std::hash<std::string_view>{}(std::string_view(NdRange160, sizeof(NdRange160) - 1)), []() { XPLMSetDatai(gNdRangeCptDataref, 4); });
+    CommandMap.emplace(std::hash<std::string_view>{}(std::string_view(NdRange320, sizeof(NdRange320) - 1)), []() { XPLMSetDatai(gNdRangeCptDataref, 5); });
+
+    CommandMap.emplace(std::hash<std::string_view>{}(std::string_view(NdModeFoLs, sizeof(NdModeFoLs) - 1)), []() { NdModeFoSet = 0; });
+    CommandMap.emplace(std::hash<std::string_view>{}(std::string_view(NdModeFoVor, sizeof(NdModeFoVor) - 1)), []() { NdModeFoSet = 1; });
+    CommandMap.emplace(std::hash<std::string_view>{}(std::string_view(NdModeFoNav, sizeof(NdModeFoNav) - 1)), []() { NdModeFoSet = 2; });
+    CommandMap.emplace(std::hash<std::string_view>{}(std::string_view(NdModeFoArc, sizeof(NdModeFoArc) - 1)), []() { NdModeFoSet = 3; });
+    CommandMap.emplace(std::hash<std::string_view>{}(std::string_view(NdModeFoPlan, sizeof(NdModeFoPlan) - 1)), []() { NdModeFoSet = 4; });
+
+    CommandMap.emplace(std::hash<std::string_view>{}(std::string_view(NdRangeFo10, sizeof(NdRangeFo10) - 1)), []() { XPLMSetDatai(gNdRangeFoDataref, 0); });
+    CommandMap.emplace(std::hash<std::string_view>{}(std::string_view(NdRangeFo20, sizeof(NdRangeFo20) - 1)), []() { XPLMSetDatai(gNdRangeFoDataref, 1); });
+    CommandMap.emplace(std::hash<std::string_view>{}(std::string_view(NdRangeFo40, sizeof(NdRangeFo40) - 1)), []() { XPLMSetDatai(gNdRangeFoDataref, 2); });
+    CommandMap.emplace(std::hash<std::string_view>{}(std::string_view(NdRangeFo80, sizeof(NdRangeFo80) - 1)), []() { XPLMSetDatai(gNdRangeFoDataref, 3); });
+    CommandMap.emplace(std::hash<std::string_view>{}(std::string_view(NdRangeFo160, sizeof(NdRangeFo160) - 1)), []() { XPLMSetDatai(gNdRangeFoDataref, 4); });
+    CommandMap.emplace(std::hash<std::string_view>{}(std::string_view(NdRangeFo320, sizeof(NdRangeFo320) - 1)), []() { XPLMSetDatai(gNdRangeFoDataref, 5); });
 
     CommandMap.emplace(std::hash<std::string_view>{}(std::string_view(VsPullRelease, sizeof(VsPullRelease) - 1)), []() { XPLMCommandOnce(gVsPull); });
     CommandMap.emplace(std::hash<std::string_view>{}(std::string_view(VsPushRelease, sizeof(VsPushRelease) - 1)), []() { XPLMCommandOnce(gVsPush); });
@@ -331,7 +354,7 @@ void SkalarkiCmd::InitDatarefs(SkalarkiComm* pSkalariComm)
     SpdSet = XPLMGetDataf(gSpdDataref);
 
     gHdgDataref = XPLMFindDataRef("sim/cockpit/autopilot/heading_mag");
-    HdgSet = XPLMGetDataf(gHdgDataref) + 0.5f;
+    HdgSet = XPLMGetDataf(gHdgDataref);
 
     gVsDataref = XPLMFindDataRef("sim/cockpit/autopilot/vertical_velocity");
     gAltPullDataref = XPLMFindCommand("laminar/A333/autopilot/altitude_knob_pull");
@@ -346,10 +369,16 @@ void SkalarkiCmd::InitDatarefs(SkalarkiComm* pSkalariComm)
 
     gAltModeLeftDataref = XPLMFindCommand("laminar/A333/autopilot/alt_step_left");
     gAltModeRightDataref = XPLMFindCommand("laminar/A333/autopilot/alt_step_right");
-    gNdModeDataref = XPLMFindDataRef("sim/cockpit2/EFIS/map_mode");
-    gNdModeLeftDataref = XPLMFindCommand("laminar/A333/knobs/capt_EFIS_knob_left");
-    gNdModeRightDataref = XPLMFindCommand("laminar/A333/knobs/capt_EFIS_knob_right");
-    gNdRangeDataref = XPLMFindDataRef("sim/cockpit2/EFIS/map_range");
+    
+    gNdModeCptDataref = XPLMFindDataRef("sim/cockpit2/EFIS/map_mode");
+    gNdModeCptLeftDataref = XPLMFindCommand("laminar/A333/knobs/capt_EFIS_knob_left");
+    gNdModeCptRightDataref = XPLMFindCommand("laminar/A333/knobs/capt_EFIS_knob_right");
+    gNdRangeCptDataref = XPLMFindDataRef("sim/cockpit2/EFIS/map_range");
+    
+    gNdModeFoDataref = XPLMFindDataRef("sim/cockpit2/EFIS/map_mode_copilot");
+    gNdModeFoLeftDataref = XPLMFindCommand("laminar/A333/knobs/fo_EFIS_knob_left");
+    gNdModeFoRightDataref = XPLMFindCommand("laminar/A333/knobs/fo_EFIS_knob_right");
+    gNdRangeFoDataref = XPLMFindDataRef("sim/cockpit2/EFIS/map_range_copilot");
 
     if (gHdgManagedDataref == NULL)
     {
@@ -722,30 +751,41 @@ void SkalarkiCmd::Update(SkalarkiComm* pSkalarkiComm)
             if (NdMode < NdModeSet)
             {
                 NdMode++;
-                XPLMCommandOnce(gNdModeRightDataref);
+                XPLMCommandOnce(gNdModeCptRightDataref);
             }
             else
             {
                 NdMode--;
-                XPLMCommandOnce(gNdModeLeftDataref);
+                XPLMCommandOnce(gNdModeCptLeftDataref);
             }
         }
     }
 
-    if (NdRange != NdRangeSet)
+    if (NdModeFo != NdModeFoSet)
     {
-        NdRange = NdRangeSet;
-        XPLMSetDatai(gNdRangeDataref, NdRange);
+        while (NdModeFo != NdModeFoSet)
+        {
+            if (NdModeFo < NdModeFoSet)
+            {
+                NdModeFo++;
+                XPLMCommandOnce(gNdModeFoRightDataref);
+            }
+            else
+            {
+                NdModeFo--;
+                XPLMCommandOnce(gNdModeFoLeftDataref);
+            }
+        }
     }
-
-    if (HdgSet != Hdg)
+    
+    if ((int)HdgSet != (int)Hdg)
     {
         Hdg = HdgSet;
         UpdateHdg(pSkalarkiComm, (int)(Hdg + 0.5));
         XPLMSetDataf(gHdgDataref, Hdg);
     }
 
-    if (SpdSet != Spd)
+    if ((int)SpdSet != (int)Spd)
     {
         Spd = SpdSet;
         UpdateSpd(pSkalarkiComm, (int)Spd);
